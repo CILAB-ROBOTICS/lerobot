@@ -1,0 +1,13 @@
+lerobot-train \
+  --policy.path=lerobot/smolvla_base \
+  --dataset.repo_id=eunjuri/soft_manip_data \
+  --batch_size=64 \
+  --steps=20000 \
+  --output_dir=outputs/train/my_smolvla \
+  --job_name=my_smolvla_training \
+  --policy.device=cuda \
+  --wandb.enable=true \
+  --wandb.project baselines \
+  --policy.repo_id=eunjuri/smol_policy \
+  --rename_map='{"observation.images.cam_left_high": "observation.images.camera1"}' \
+  --policy.max_state_dim=64
