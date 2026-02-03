@@ -1,0 +1,17 @@
+ lerobot-train \
+  --dataset.repo_id=eunjuri/${repo_id} \
+  --output_dir=./outputs/xvla_${repo_id} \
+  --job_name=xvla_${repo_id} \
+  --policy.path="lerobot/xvla-base" \
+  --policy.repo_id=eunjuri/xvla_policy_${repo_id} \
+  --policy.dtype=bfloat16 \
+  --policy.action_mode=auto \
+  --steps=${step} \
+  --policy.device=cuda \
+  --policy.freeze_vision_encoder=false \
+  --policy.freeze_language_encoder=false \
+  --policy.train_policy_transformer=true \
+  --policy.train_soft_prompts=true \
+  --wandb.enable=true \
+  --wandb.project baselines \
+  --rename_map='{"observation.images.cam_left_high": "observation.images.camera1"}'

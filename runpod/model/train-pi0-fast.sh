@@ -1,0 +1,15 @@
+lerobot-train \
+    --dataset.repo_id=eunjuri/${repo_id} \
+    --policy.type=pi0_fast \
+    --output_dir=./outputs/train/pi0_fast_${repo_id} \
+    --job_name=pi0_fast_${repo_id} \
+    --policy.pretrained_path=lerobot/pi0fast_base \
+    --policy.dtype=bfloat16 \
+    --policy.gradient_checkpointing=true \
+    --policy.chunk_size=10 \
+    --policy.n_action_steps=10 \
+    --policy.max_action_tokens=256 \
+    --steps=${step} \
+    --batch_size=4 \
+    --policy.device=cuda \
+    --policy.repo_id="eunjuri/pi0-fast-robot"

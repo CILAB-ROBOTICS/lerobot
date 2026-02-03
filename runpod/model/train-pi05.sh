@@ -1,0 +1,17 @@
+lerobot-train \
+    --dataset.repo_id=eunjuri/${repo_id} \
+    --policy.type=pi05 \
+    --output_dir=outputs/train/pi05_${repo_id} \
+    --job_name=pi05_${repo_id} \
+    --policy.repo_id=eunjuri/pi05_policy_${repo_id} \
+    --policy.pretrained_path=lerobot/pi05_base \
+    --policy.compile_model=false \
+    --policy.gradient_checkpointing=true \
+    --wandb.enable=true \
+    --policy.dtype=bfloat16 \
+    --policy.freeze_vision_encoder=false \
+    --policy.train_expert_only=false \
+    --steps=3000 \
+    --policy.device=cuda \
+    --batch_size=1 \
+    --wandb.project baselines 

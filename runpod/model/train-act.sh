@@ -1,0 +1,10 @@
+lerobot-train \
+  --dataset.repo_id=eunjuri/${repo_id} \
+  --policy.type=act \
+  --output_dir=outputs/train/act_${repo_id} \
+  --job_name=act_${repo_id} \
+  --policy.device=cuda \
+  --wandb.enable=true \
+  --policy.repo_id=eunjuri/act_policy_${repo_id} \
+  --step=${step} \
+  --wandb.project baselines

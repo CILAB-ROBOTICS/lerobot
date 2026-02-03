@@ -1,10 +1,138 @@
 import os
 import time
+import yaml
 import argparse
+from enum import Enum
+from pathlib import Path
+from string import Template
+from typing import Any, Dict
+from itertools import islice
 
 import runpod
 import requests
 from dotenv import load_dotenv
+
+# ---
+command_folder_path = './model'
+
+class CmdType(Enum):
+    HF_LOGIN = "HF_LOGIN"
+    WANDB_LOGIN = "WANDB_LOGIN"
+    TRAIN = "TRAIN"
+    STOP = "STOP"
+
+class ModelType(Enum):
+    ACT = "ACT"
+    SmolVLA = "SmolVLA"
+    XVLA = "XVLA"
+    pi0 = "pi0"
+    pi05 = "pi05"
+    pi0_fast = "pi0_fast"
+    GROOT = "GROOT"
+
+def cmd_constructor(loader: yaml.SafeLoader, node: yaml.nodes.ScalarNode) -> CmdType:
+    value = loader.construct_scalar(node)
+    return CmdType(value)
+
+def model_type_constructor(loader: yaml.SafeLoader, node: yaml.nodes.ScalarNode) -> ModelType:
+    value = loader.construct_scalar(node)
+    return ModelType(value)
+
+yaml.SafeLoader.add_constructor('!CMD', cmd_constructor)
+yaml.SafeLoader.add_constructor('!MODEL_TYPE', model_type_constructor)
+
+def parse_args():
+    conf_parser = argparse.ArgumentParser(add_help=False)
+    conf_parser.add_argument("-c", "--config", type=str, help="YAML config file path", default='config.yaml')
+    temp_args, remaining_argv = conf_parser.parse_known_args()
+
+    defaults = {
+        'name': f'python-{" ".join(time.ctime().split()[1:-1])}',
+        'template_id': 'o6u732ibrq',
+        'gpu': 'NVIDIA RTX 2000 Ada Generation',
+        'gpu_count': 1,
+        'spot': False,
+        'timeout': False,
+        'time_limit': 60.0 * 60,
+        'terminate': True,
+        'commands': []
+    }
+
+    if temp_args.config and Path(temp_args.config).exists():
+        with open(temp_args.config, "r") as f:
+            data = yaml.safe_load(f)
+
+            pod_cfg = data.get('pod', {})
+            opt_cfg = data.get('options', {})
+            
+            yaml_updates = {
+                'template_id': pod_cfg.get('template_id'),
+                'gpu': pod_cfg.get('gpu'),
+                'gpu_count': pod_cfg.get('gpu_count'),
+                'spot': pod_cfg.get('spot'),
+                'timeout': opt_cfg.get('timeout'),
+                'time_limit': opt_cfg.get('time_limit'),
+                'terminate': opt_cfg.get('terminate')
+            }
+            
+            yaml_updates = {k: v for k, v in yaml_updates.items() if v is not None}
+            commands = []
+            for entry in data.get('runtime', {}).get('cmds', []):
+                cmd_type = next(iter(entry))
+                if cmd_type == CmdType.TRAIN:
+                    commands.append((cmd_type, dict(islice(entry.items(), 1, None))))
+                else:
+                    commands.append((cmd_type, None))
+
+            yaml_updates['commands'] = commands
+            print(commands)
+            defaults.update(yaml_updates)
+
+    parser = argparse.ArgumentParser(parents=[conf_parser])
+
+    parser.add_argument('--name', type=str)
+
+    parser.add_argument('--template-id', type=str)
+    parser.add_argument('--gpu', type=str)
+    parser.add_argument('--gpu-count', type=int)
+    parser.add_argument('--spot', action=argparse.BooleanOptionalAction)
+    
+    parser.add_argument('--timeout', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--time-limit', type=float)
+    parser.add_argument('--terminate', action=argparse.BooleanOptionalAction)
+
+    parser.set_defaults(**defaults)
+    
+    return parser.parse_args()
+
+def get_train_command(train_content):
+    model_type = train_content['model_type']
+    args = train_content['args']
+
+    match model_type:
+        case ModelType.ACT:
+            path = f'{command_folder_path}/train-act.sh'
+        case ModelType.SmolVLA:
+            path = f'{command_folder_path}/train-smolvla.sh'
+        case ModelType.XVLA:
+            path = f'{command_folder_path}/train-xvla.sh'
+        case ModelType.pi0:
+            path = f'{command_folder_path}/train-pi0.sh'
+        case ModelType.pi05:
+            path = f'{command_folder_path}/train-pi05.sh'
+        case ModelType.pi0_fast:
+            path = f'{command_folder_path}/train-pi0-fash.sh'
+        case ModelType.GROOT:
+            path = f'{command_folder_path}/train-groot.sh'
+            
+        case _:
+            raise ValueError(f'{model_type} is invalid model type.')
+        
+    with open(path) as f:
+        command_baseline = f.read()
+    result = Template(command_baseline).substitute(args)
+        
+    return result
 
 def main(args):
     try:
@@ -20,14 +148,26 @@ def main(args):
             'Content-Type': 'application/json'
         }
 
-        cmd = ''
-        if not args.start_command == 'None':
-            with open(f'./runpod/model/{args.start_command}') as f:
-                cmd = f.read()
-
-            if not cmd:
-                raise FileNotFoundError(f'Cannot read {args.start_command}.')
-            
+        cmd = []
+        if args.commands:
+            for cmd_typ, content in args.commands:
+                match cmd_typ:
+                    case CmdType.HF_LOGIN:
+                        with open('command_set/huggingface-login.sh') as f:
+                            current_cmd = f.read()
+                    case CmdType.WANDB_LOGIN:
+                        with open('command_set/wandb-login.sh') as f:
+                            current_cmd = f.read()
+                    case CmdType.TRAIN:
+                        current_cmd = get_train_command(content)
+                    case CmdType.STOP:
+                        with open('command_set/pod-stop.sh') as f:
+                            current_cmd = f.read()
+                    case _:
+                        raise ValueError(f'{cmd_typ} is invalid.')
+                cmd.append(current_cmd)
+        
+        cmd = " && \\\n".join(cmd)
         pod_id = ''
         data = {
             'name': args.name,
@@ -60,13 +200,14 @@ def main(args):
             if response['desiredStatus'] == 'EXITED':
                 break
 
-            if time.time() - start_time > args.time_limit:
-                print('Time limit exceeded. Try to terminate pod.')
+            if args.timeout and (time.time()-start_time > args.time_limit):
+                print('Time limit exceeded. Try to terminate pod if not stop only.')
                 break
             time.sleep(1)
+
     finally:
         response = runpod.get_pod(pod_id=pod_id)
-        if response and not args.not_terminate:
+        if response and args.terminate:
             runpod.terminate_pod(pod_id=pod_id)
             time.sleep(1)
             response = runpod.get_pod(pod_id=pod_id)
@@ -76,27 +217,11 @@ def main(args):
                 print('Pod is not terminated yet. Check dashboard.')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--name', type=str, default=f'python-{" ".join(time.ctime().split()[1:-1])}')
-    parser.add_argument('--template-id', type=str, default='o6u732ibrq') # docker
-    parser.add_argument('--gpu', type=str, default='NVIDIA RTX 2000 Ada Generation')
-    parser.add_argument('--gpu-count', type=int, default=1)
-    parser.add_argument('--spot', action='store_true')
-    parser.add_argument('--time-limit', type=float, default=60 * 60)
-    parser.add_argument('--not-terminate', action='store_true')
-    parser.add_argument('--start-command', type=str, default='None')
-
-    args = parser.parse_args()
-
+    args = parse_args()
     main(args)
 
 """
 Usage:
 python runpod/train_in_runpod.py \
-    --name eunjuri/soft_manip_data \
-    --template-id o6u732ibrq \
-    --gpu "NVIDIA RTX 2000 Ada Generation" \
-    --spot \
-    --start-command act.sh
+    --config config.yaml
 """

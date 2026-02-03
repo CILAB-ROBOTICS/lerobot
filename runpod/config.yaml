@@ -1,0 +1,21 @@
+pod:
+  template_id: "o6u732ibrq" # docker templete
+  gpu: "NVIDIA RTX 2000 Ada Generation" # gpu
+  gpu_count: 1
+  spot: true
+
+options:
+  timeout: false
+  time_limit: 3600
+  terminate: true
+
+runtime:
+  cmds:
+    - !CMD HF_LOGIN: ~
+    - !CMD WANDB_LOGIN: ~
+    - !CMD TRAIN:
+      model_type: !MODEL_TYPE ACT
+      args:
+        repo_id: "soft_manip_data"
+        step: 1000
+    - !CMD STOP: ~

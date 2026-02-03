@@ -1,0 +1,13 @@
+lerobot-train \
+  --policy.path=lerobot/smolvla_base \
+  --dataset.repo_id=eunjuri/${repo_id} \
+  --batch_size=64 \
+  --steps=${step} \
+  --output_dir=outputs/train/smolvla_${repo_id} \
+  --job_name=smolvla_${repo_id} \
+  --policy.device=cuda \
+  --wandb.enable=true \
+  --wandb.project baselines \
+  --policy.repo_id=eunjuri/smolvla_${repo_id} \
+  --rename_map='{"observation.images.cam_left_high": "observation.images.camera1"}' \
+  --policy.max_state_dim=64
