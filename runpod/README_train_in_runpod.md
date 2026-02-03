@@ -19,7 +19,7 @@ pip install runpod dotenv
 ## 실행 인자
 실행 인자는 기본적으로 `config.yaml`의 값을 덮어씁니다.
 #### 입력값이 있는 인자
-- `-c` 또는 `--config`: 설정으로 사용할 YAML 파일의 경로입니다. 기본값: `config.yaml`
+- `-c` 또는 `--config`: 설정으로 사용할 config 폴더 내 YAML 파일의 이름입니다. 기본값: `config.yaml`
 - `--name`: 해당 pod의 이름을 지정합니다. 기본값: `'python-{현재 시간}'`
 - `--template-id`: pod를 만들 때 사용할 template의 id입니다.
 - `--gpu`: pod가 사용할 gpu의 id값 입니다. id에 관한 정보는 하단의 gpu id 목록을 참고 부탁드립니다.
@@ -47,7 +47,7 @@ pip install runpod dotenv
     'terminate': True,
     'commands': []
     ```
-3. start command를 runtime, cmds항목에 작성해서 pod를 실행할 수 있습니다. 이때 사용되는 스크립트 파일은 `train_in_runpod.py` 스크립트의 실행 위치 기준으로 `./model`에 저장된 스크립트를 start command로 사용합니다. 허용되는 명령어 및 설명은 다음과 같습니다.
+3. start command를 runtime, cmds항목에 작성해서 pod를 실행할 수 있습니다. 이때 사용되는 스크립트 파일은 `train_in_runpod.py` 스크립트의 실행 위치 기준으로 `./model`에 저장된 스크립트와 `./config`에 저장된 스크립트 일부를 start command로 사용합니다. 허용되는 명령어 및 설명은 다음과 같습니다.
 - `!CMD HF_LOGIN`: `huggingface-login.sh`를 실행합니다. 환경변수로 주입된 Hugging Face의 API를 이용하여 로그인을 시도합니다.
 - `!CMD WANDB_LOGIN`: `wandb-login.sh`를 실행합니다. 환경변수로 주입된 wandb의 key를 이용하여 로그인을 시도합니다.
 - `!CMD TRAIN`: 이후 주어지는 매개변수들을 기준으로, 각각의 스크립트를 실행합니다. (예시) `!MODEL_TYPE ACT`로 model_type을 입력한 경우, `train-act.sh`를 실행합니다. 주요 항목은 아래 TRAIN 및 스크립트 관련 참고사항을 확인 부탁드립니다.

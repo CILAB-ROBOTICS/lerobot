@@ -5,7 +5,6 @@ import argparse
 from enum import Enum
 from pathlib import Path
 from string import Template
-from typing import Any, Dict
 from itertools import islice
 
 import runpod
@@ -13,7 +12,9 @@ import requests
 from dotenv import load_dotenv
 
 # ---
-command_folder_path = './model'
+command_folder_path = os.path.join(__file__.rstrip('train_in_runpod.py'), 'model')
+config_folder_path = os.path.join(__file__.rstrip('train_in_runpod.py'), 'config')
+# ---
 
 class CmdType(Enum):
     HF_LOGIN = "HF_LOGIN"
@@ -43,7 +44,7 @@ yaml.SafeLoader.add_constructor('!MODEL_TYPE', model_type_constructor)
 
 def parse_args():
     conf_parser = argparse.ArgumentParser(add_help=False)
-    conf_parser.add_argument("-c", "--config", type=str, help="YAML config file path", default='config.yaml')
+    conf_parser.add_argument("-c", "--config", type=str, help="YAML config file path", default=f'config.yaml')
     temp_args, remaining_argv = conf_parser.parse_known_args()
 
     defaults = {
@@ -58,8 +59,10 @@ def parse_args():
         'commands': []
     }
 
-    if temp_args.config and Path(temp_args.config).exists():
-        with open(temp_args.config, "r") as f:
+    config_path = os.path.join(config_folder_path, temp_args.config)
+
+    if temp_args.config and Path(config_path).exists():
+        with open(config_path, "r") as f:
             data = yaml.safe_load(f)
 
             pod_cfg = data.get('pod', {})
@@ -85,7 +88,6 @@ def parse_args():
                     commands.append((cmd_type, None))
 
             yaml_updates['commands'] = commands
-            print(commands)
             defaults.update(yaml_updates)
 
     parser = argparse.ArgumentParser(parents=[conf_parser])
@@ -111,23 +113,25 @@ def get_train_command(train_content):
 
     match model_type:
         case ModelType.ACT:
-            path = f'{command_folder_path}/train-act.sh'
+            path = os.path.join(command_folder_path, 'train-act.sh')
         case ModelType.SmolVLA:
-            path = f'{command_folder_path}/train-smolvla.sh'
+            path = os.path.join(command_folder_path, 'train-smolvla.sh')
         case ModelType.XVLA:
-            path = f'{command_folder_path}/train-xvla.sh'
+            path = os.path.join(command_folder_path, 'train-xvla.sh')
         case ModelType.pi0:
-            path = f'{command_folder_path}/train-pi0.sh'
+            path = os.path.join(command_folder_path, 'train-pi0.sh')
         case ModelType.pi05:
-            path = f'{command_folder_path}/train-pi05.sh'
+            path = os.path.join(command_folder_path, 'train-pi05.sh')
         case ModelType.pi0_fast:
-            path = f'{command_folder_path}/train-pi0-fash.sh'
+            path = os.path.join(command_folder_path, 'train-pi0-fash.sh')
         case ModelType.GROOT:
-            path = f'{command_folder_path}/train-groot.sh'
+            path = os.path.join(command_folder_path, 'train-groot.sh')
             
         case _:
             raise ValueError(f'{model_type} is invalid model type.')
-        
+    
+    if not Path(path).exists():
+        raise FileNotFoundError(f'Cannot find {path}')
     with open(path) as f:
         command_baseline = f.read()
     result = Template(command_baseline).substitute(args)
@@ -153,15 +157,15 @@ def main(args):
             for cmd_typ, content in args.commands:
                 match cmd_typ:
                     case CmdType.HF_LOGIN:
-                        with open('command_set/huggingface-login.sh') as f:
+                        with open(f'{config_folder_path}/huggingface-login.sh') as f:
                             current_cmd = f.read()
                     case CmdType.WANDB_LOGIN:
-                        with open('command_set/wandb-login.sh') as f:
+                        with open(f'{config_folder_path}/wandb-login.sh') as f:
                             current_cmd = f.read()
                     case CmdType.TRAIN:
                         current_cmd = get_train_command(content)
                     case CmdType.STOP:
-                        with open('command_set/pod-stop.sh') as f:
+                        with open(f'{config_folder_path}/pod-stop.sh') as f:
                             current_cmd = f.read()
                     case _:
                         raise ValueError(f'{cmd_typ} is invalid.')
