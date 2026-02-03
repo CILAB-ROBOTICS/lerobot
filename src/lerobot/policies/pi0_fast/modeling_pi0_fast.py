@@ -823,14 +823,27 @@ class PI0FastPolicy(PreTrainedPolicy):
         # Load tokenizers first
         try:
             from transformers import AutoProcessor, AutoTokenizer
+            from transformers.dynamic_module_utils import get_class_from_dynamic_module
 
+            FastActionTokenizer = get_class_from_dynamic_module(
+                "processing_action_tokenizer.FastActionTokenizer",
+                "physical-intelligence/fast",
+                revision="ec4d7aa71691cac0b8bed6942be45684db2110f4",
+                trust_remote_code=True,
+            )
+
+            self.action_tokenizer = FastActionTokenizer.from_pretrained(
+                "physical-intelligence/fast",
+                revision="ec4d7aa71691cac0b8bed6942be45684db2110f4",
+            )
+            '''
             # Load FAST tokenizer
             self.action_tokenizer = AutoProcessor.from_pretrained(
                 config.action_tokenizer_name, 
                 revision="ec4d7aa71691cac0b8bed6942be45684db2110f4",
                 trust_remote_code=True
             )
-
+            '''
             # Load PaliGemma tokenizer for token conversion
             self._paligemma_tokenizer = AutoTokenizer.from_pretrained(
                 config.text_tokenizer_name, trust_remote_code=True, add_eos_token=True, add_bos_token=False
