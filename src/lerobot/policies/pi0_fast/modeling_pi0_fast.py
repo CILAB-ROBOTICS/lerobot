@@ -826,7 +826,9 @@ class PI0FastPolicy(PreTrainedPolicy):
 
             # Load FAST tokenizer
             self.action_tokenizer = AutoProcessor.from_pretrained(
-                config.action_tokenizer_name, trust_remote_code=True
+                config.action_tokenizer_name, 
+                revision="ec4d7aa71691cac0b8bed6942be45684db2110f4",
+                trust_remote_code=True
             )
 
             # Load PaliGemma tokenizer for token conversion
