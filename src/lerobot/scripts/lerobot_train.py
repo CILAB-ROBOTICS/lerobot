@@ -54,6 +54,53 @@ from lerobot.utils.utils import (
 )
 
 
+@torch.no_grad()
+def evaluate_on_val(
+    policy,
+    val_dataloader,
+    device,
+    use_amp,
+):
+
+    policy.eval()
+
+    meters = {
+        "total_loss": AverageMeter("val_total_loss", ":.3f"),
+        "l1_loss": AverageMeter("val_l1_loss", ":.3f"),
+        "kld_loss": AverageMeter("val_kld_loss", ":.3f"),
+    }
+
+    for batch in val_dataloader:
+        for key in batch:
+            if isinstance(batch[key], torch.Tensor):
+                batch[key] = batch[key].to(device, non_blocking=True)
+
+        with torch.autocast(device_type=device.type) if use_amp else nullcontext():
+            output = policy(batch)
+            if isinstance(output, dict):
+                loss = output["loss"]
+            elif isinstance(output, tuple): # use this
+                total_loss, extra = output
+                l1_loss  = float(extra["l1_loss"])
+                kld_loss = float(extra["kld_loss"])
+                total_loss = total_loss.item()
+            else:
+                loss = output
+        
+        batch_size = batch[list(batch.keys())[0]].shape[0]
+        meters["total_loss"].update(total_loss, n=batch_size)
+        meters["l1_loss"].update(l1_loss, n=batch_size)
+        meters["kld_loss"].update(kld_loss, n=batch_size)
+
+    policy.train()
+
+    return {
+        "total_loss": meters["total_loss"].avg,
+        "l1_loss": meters["l1_loss"].avg,
+        "kld_loss": meters["kld_loss"].avg,
+    }
+
+
 def update_policy(
     train_metrics: MetricsTracker,
     policy: PreTrainedPolicy,
@@ -312,7 +359,8 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
         )
 
     step = 0  # number of policy updates (forward + backward + optim)
-
+    eval_step = 0  # number of eval calls
+    
     if cfg.resume:
         step, optimizer, lr_scheduler = load_training_state(cfg.checkpoint_path, optimizer, lr_scheduler)
 
@@ -414,10 +462,11 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
         # Note: eval and checkpoint happens *after* the `step`th training update has completed, so we
         # increment `step` here.
         step += 1
+        eval_step += 1
         train_tracker.step()
         is_log_step = cfg.log_freq > 0 and step % cfg.log_freq == 0 and is_main_process
         is_saving_step = step % cfg.save_freq == 0 or step == cfg.steps
-        is_eval_step = cfg.eval_freq > 0 and step % cfg.eval_freq == 0
+        is_eval_step = eval_step % 100 == 0
 
         if is_log_step:
             logging.info(train_tracker)
@@ -458,7 +507,28 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
 
             accelerator.wait_for_everyone()
 
-        if cfg.env and is_eval_step:
+        if is_eval_step:
+            val_metrics = evaluate_on_val(
+                policy,
+                dataloader,
+                device,
+                use_amp=cfg.policy.use_amp,
+            )
+            logging.info(f"[valid] step={eval_step} val_loss={val_metrics['total_loss']:.3f} val_l1_loss={val_metrics['l1_loss']:.3f} val_kld_loss={val_metrics['kld_loss']:.3f}")
+            
+            if wandb_logger:
+                wandb_logger.log_dict(
+                    {
+                        "loss": val_metrics['total_loss'],
+                        "l1_loss": val_metrics['l1_loss'],
+                        "kld_loss": val_metrics['kld_loss'],
+                    },
+                    step=eval_step,
+                    mode="eval",
+                )      
+        
+        '''
+        if is_eval_step:
             if is_main_process:
                 step_id = get_step_identifier(step, cfg.steps)
                 logging.info(f"Eval policy at step {step}")
@@ -506,7 +576,7 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
                     wandb_logger.log_video(eval_info["overall"]["video_paths"][0], step, mode="eval")
 
             accelerator.wait_for_everyone()
-
+        '''
     if eval_env:
         close_envs(eval_env)
 
