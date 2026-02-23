@@ -1,4 +1,4 @@
-python lerobot_train.py \
+lerobot-train \
     --dataset.repo_id=eunjuri/${repo_id} \
     --policy.type=pi0 \
     --output_dir=./outputs/pi0_${repo_id} \
@@ -8,11 +8,11 @@ python lerobot_train.py \
     --policy.compile_model=false \
     --policy.gradient_checkpointing=true \
     --policy.dtype=bfloat16 \
-    --policy.freeze_vision_encoder=true \
-    --policy.train_expert_only=true \
+    --policy.freeze_vision_encoder=false \
+    --policy.train_expert_only=false \
     --steps=${step} \
     --policy.device=cuda \
-    --batch_size=1 \
+    --batch_size=4 \
     --peft.method_type=LORA \
     --peft.r=64 \
     --wandb.enable=true \

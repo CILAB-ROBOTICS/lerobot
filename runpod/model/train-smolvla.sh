@@ -10,4 +10,4 @@ lerobot-train \
   --wandb.project baselines \
   --policy.repo_id=eunjuri/smolvla_${repo_id} \
   --rename_map='{"observation.images.cam_left_high": "observation.images.camera1"}' \
-  --policy.max_state_dim=64
+  --policy.max_state_dim=32

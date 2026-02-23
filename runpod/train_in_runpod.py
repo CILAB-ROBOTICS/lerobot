@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 
 # ---
 command_folder_path = os.path.join(__file__.rstrip('train_in_runpod.py'), 'model')
-config_folder_path = os.path.join(__file__.rstrip('train_in_runpod.py'), 'config')
+current_dir = os.path.dirname(os.path.abspath(__file__))
+config_folder_path = os.path.join(current_dir, 'config')
 # ---
 
 class CmdType(Enum):
@@ -49,7 +50,7 @@ def parse_args():
 
     defaults = {
         'name': f'python-{" ".join(time.ctime().split()[1:-1])}',
-        'template_id': 'o6u732ibrq',
+        'template_id': '9qrvx6gpdo',
         'gpu': 'NVIDIA RTX 2000 Ada Generation',
         'gpu_count': 1,
         'spot': False,
@@ -60,6 +61,7 @@ def parse_args():
     }
 
     config_path = os.path.join(config_folder_path, temp_args.config)
+    print(f"[DEBUG] Config path: {config_path}") 
 
     if temp_args.config and Path(config_path).exists():
         with open(config_path, "r") as f:
@@ -79,6 +81,7 @@ def parse_args():
             }
             
             yaml_updates = {k: v for k, v in yaml_updates.items() if v is not None}
+
             commands = []
             for entry in data.get('runtime', {}).get('cmds', []):
                 cmd_type = next(iter(entry))
@@ -123,7 +126,7 @@ def get_train_command(train_content):
         case ModelType.pi05:
             path = os.path.join(command_folder_path, 'train-pi05.sh')
         case ModelType.pi0_fast:
-            path = os.path.join(command_folder_path, 'train-pi0-fash.sh')
+            path = os.path.join(command_folder_path, 'train-pi0-fast.sh')
         case ModelType.GROOT:
             path = os.path.join(command_folder_path, 'train-groot.sh')
             
@@ -195,11 +198,17 @@ def main(args):
             raise ValueError('Cannot get pod_id.')
 
         start_time = time.time()
+        iter_count = 0
+
         while True:
             response = runpod.get_pod(pod_id=pod_id)
             if not response:
                 print(f'Cannot access {pod_id} pod. It may be terminated already.')
                 break
+                
+            if iter_count % 600 == 0:
+                elapsed_min = int((time.time() - start_time) / 60)
+                print(f"[DEBUG] Pod is still {response['desiredStatus']}... (Elapsed: {elapsed_min} min)")
 
             if response['desiredStatus'] == 'EXITED':
                 break
@@ -207,6 +216,8 @@ def main(args):
             if args.timeout and (time.time()-start_time > args.time_limit):
                 print('Time limit exceeded. Try to terminate pod if not stop only.')
                 break
+
+            iter_count += 1
             time.sleep(1)
 
     finally:

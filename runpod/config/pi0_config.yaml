@@ -1,0 +1,22 @@
+pod:
+  template_id: "fk2s5etddm" # docker 
+  gpu: "NVIDIA H100 80GB HBM3"
+  gpu_count: 1
+  spot: false
+
+options:
+  timeout: false
+  time_limit: 360000 # 100 hours
+  terminate: true
+
+runtime:
+  cmds:
+    - !CMD HF_LOGIN: ~
+    - !CMD WANDB_LOGIN: ~
+    - !CMD TRAIN:
+      model_type: !MODEL_TYPE pi0
+      args:
+        repo_id: "pick_and_place_for_train_no_tac"
+        step: 3000
+    - !CMD STOP: ~
+    

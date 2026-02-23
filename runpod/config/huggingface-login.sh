@@ -1,1 +1,1 @@
-huggingface-cli login --token "$HUGGINGFACE_TOKEN"
+hf auth login --token "$HUGGINGFACE_TOKEN"

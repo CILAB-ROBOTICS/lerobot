@@ -13,5 +13,4 @@
   --policy.train_policy_transformer=true \
   --policy.train_soft_prompts=true \
   --wandb.enable=true \
-  --wandb.project baselines \
-  --rename_map='{"observation.images.cam_left_high": "observation.images.camera1"}'
+  --wandb.project baselines 

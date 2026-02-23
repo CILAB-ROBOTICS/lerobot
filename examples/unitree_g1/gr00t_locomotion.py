@@ -211,6 +211,8 @@ def run(repo_id: str = DEFAULT_GROOT_REPO_ID) -> None:
     policy_balance, policy_walk = load_groot_policies(repo_id=repo_id)
 
     # Initialize robot
+    config = UnitreeG1Config(is_simulation=False)
+    
     config = UnitreeG1Config()
     robot = UnitreeG1(config)
 

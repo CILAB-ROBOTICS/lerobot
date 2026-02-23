@@ -11,7 +11,7 @@ lerobot-train \
     --policy.dtype=bfloat16 \
     --policy.freeze_vision_encoder=false \
     --policy.train_expert_only=false \
-    --steps=3000 \
+    --steps=${step} \
     --policy.device=cuda \
     --batch_size=1 \
     --wandb.project baselines 

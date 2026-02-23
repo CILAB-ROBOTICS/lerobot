@@ -1,0 +1,21 @@
+pod:
+  template_id: "fk2s5etddm" # docker 
+  gpu: "NVIDIA GeForce RTX 4090"
+  gpu_count: 1
+  spot: false
+
+options:
+  timeout: false
+  time_limit: 360000 # 10 hours
+  terminate: true
+
+runtime:
+  cmds:
+    - !CMD HF_LOGIN: ~
+    - !CMD WANDB_LOGIN: ~
+    - !CMD TRAIN:
+      model_type: !MODEL_TYPE SmolVLA
+      args:
+        repo_id: "pick_and_place_for_train_no_tac"
+        step: 20000
+    - !CMD STOP: ~

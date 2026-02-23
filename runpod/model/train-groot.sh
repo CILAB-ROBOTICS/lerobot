@@ -1,6 +1,5 @@
 lerobot-train \
-    --output_dir=./outputs/${repo_id} \
-    --save_checkpoint=true \
+    --save_checkpoint=false \
     --batch_size=4 \
     --steps=${step} \
     --policy.push_to_hub=true \
@@ -11,4 +10,5 @@ lerobot-train \
     --wandb.enable=true \
     --wandb.disable_artifact=true \
     --job_name=groot_${repo_id} \
-    --wandb.project baseline
+    --rename_map='{"observation.images.cam_left_high": "observation.images.camera1"}' \
+    --wandb.project baselines

@@ -1,9 +1,9 @@
 lerobot-train \
-    --dataset.repo_id=eunjuri/${repo_id} \
+    --dataset.repo_id=eunjuri/${repo_ xxxid} \
     --policy.type=pi0_fast \
     --output_dir=./outputs/train/pi0_fast_${repo_id} \
     --job_name=pi0_fast_${repo_id} \
-    --policy.pretrained_path=lerobot/pi0fast_base \
+    --policy.pretrained_path=lerobot/pi0fast-libero \
     --policy.dtype=bfloat16 \
     --policy.gradient_checkpointing=true \
     --policy.chunk_size=10 \
@@ -12,4 +12,6 @@ lerobot-train \
     --steps=${step} \
     --batch_size=4 \
     --policy.device=cuda \
-    --policy.repo_id="eunjuri/pi0-fast-robot"
+    --policy.repo_id="eunjuri/pi0-fast-robot" \
+    --wandb.enable=true \
+    --wandb.project baselines
