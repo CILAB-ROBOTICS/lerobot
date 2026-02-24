@@ -16,7 +16,6 @@ runtime:
     - !CMD TRAIN:
       model_type: !MODEL_TYPE GROOT
       args:
-        repo_id: "sponge_strong_train_no_tactile"
-        step: 3000
+        repo_id: "pick_and_place_for_train_no_tac"
+        step: 10000
     - !CMD STOP: ~
-    

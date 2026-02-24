@@ -16,7 +16,7 @@ runtime:
     - !CMD TRAIN:
       model_type: !MODEL_TYPE pi05
       args:
-        repo_id: "red_cup"
-        step: 1500
+        repo_id: "pick_and_place_for_train_no_tac"
+        step: 10000
     - !CMD STOP: ~
     

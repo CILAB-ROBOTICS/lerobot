@@ -17,6 +17,5 @@ runtime:
       model_type: !MODEL_TYPE pi0
       args:
         repo_id: "pick_and_place_for_train_no_tac"
-        step: 3000
+        step: 10000
     - !CMD STOP: ~
-    
