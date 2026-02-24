@@ -54,6 +54,38 @@ from lerobot.utils.utils import (
 )
 
 
+def train_test_split(dataset, val_ratio=0.2, seed=0):
+    """
+    Split episodes into train/val such that val has approximately `val_ratio`
+    of total frames (by summing episode lengths).
+    Returns: (train_eps, val_eps) as lists of episode indices.
+    """
+    epi_from = dataset.meta.episodes["dataset_from_index"]
+    epi_to   = dataset.meta.episodes["dataset_to_index"]
+
+    # episode lengths (number of frames per episode)
+    lengths = [int(epi_to[i]) - int(epi_from[i]) for i in range(len(epi_from))]
+    num_eps = len(lengths)
+
+    # shuffled episode ids (deterministic)
+    g = torch.Generator().manual_seed(seed)
+    perm = torch.randperm(num_eps, generator=g).tolist()
+
+    total_frames = sum(lengths)
+    val_target = int(total_frames * val_ratio)
+
+    val_eps, train_eps = [], []
+    acc = 0
+    for ep in perm:
+        if acc < val_target:
+            val_eps.append(ep)
+            acc += lengths[ep]
+        else:
+            train_eps.append(ep)
+
+    return train_eps, val_eps
+
+
 @torch.no_grad()
 def evaluate_on_val(
     policy,
@@ -268,6 +300,10 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
     if not is_main_process:
         dataset = make_dataset(cfg)
 
+    # Split dataset by episodes
+    val_ratio = 0.3
+    train_eps, val_eps = train_test_split(dataset, val_ratio)
+
     # Create environment used for evaluating checkpoints during training on simulation data.
     # On real-world data, no need to create an environment as evaluations are done outside train.py,
     # using the eval.py instead, with gym_dora environment and dora-rs.
@@ -385,6 +421,7 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
         logging.info(f"{num_total_params=} ({format_big_number(num_total_params)})")
 
     # create dataloader for offline training
+    '''
     if hasattr(cfg.policy, "drop_n_last_frames"):
         shuffle = False
         sampler = EpisodeAwareSampler(
@@ -397,13 +434,22 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
     else:
         shuffle = True
         sampler = None
+    '''
+    
+    train_sampler = EpisodeAwareSampler(
+        dataset.meta.episodes["dataset_from_index"],
+        dataset.meta.episodes["dataset_to_index"],
+        episode_indices_to_use=train_eps,
+        drop_n_last_frames= 1,
+        shuffle=True,
+    )
 
-    dataloader = torch.utils.data.DataLoader(
+    train_dataloader = torch.utils.data.DataLoader(
         dataset,
         num_workers=cfg.num_workers,
         batch_size=cfg.batch_size,
-        shuffle=shuffle and not cfg.dataset.streaming,
-        sampler=sampler,
+        shuffle=False,
+        sampler=train_sampler,
         pin_memory=device.type == "cuda",
         drop_last=False,
         prefetch_factor=2 if cfg.num_workers > 0 else None,
@@ -411,10 +457,33 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
 
     # Prepare everything with accelerator
     accelerator.wait_for_everyone()
-    policy, optimizer, dataloader, lr_scheduler = accelerator.prepare(
-        policy, optimizer, dataloader, lr_scheduler
+    policy, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
+        policy, optimizer, train_dataloader, lr_scheduler
     )
-    dl_iter = cycle(dataloader)
+    dl_iter = cycle(train_dataloader)
+
+    # create dataloader for offline validation
+    val_sampler = EpisodeAwareSampler(
+        dataset.meta.episodes["dataset_from_index"],
+        dataset.meta.episodes["dataset_to_index"],
+        episode_indices_to_use=val_eps,
+        drop_n_last_frames=1,
+        shuffle=False,
+    )
+
+    val_dataloader = torch.utils.data.DataLoader(
+        dataset,
+        num_workers=cfg.num_workers,
+        batch_size=cfg.batch_size,
+        shuffle=False,
+        sampler=val_sampler,
+        pin_memory=device.type != "cpu",
+        drop_last=False,
+    )
+
+    if accelerator.is_main_process:
+        inter = set(train_eps) & set(val_eps)
+        logging.info(f"train_eps={len(train_eps)} val_eps={len(val_eps)} overlap={len(inter)}")
 
     policy.train()
 
@@ -510,7 +579,7 @@ def train(cfg: TrainPipelineConfig, accelerator: Accelerator | None = None):
         if is_eval_step:
             val_metrics = evaluate_on_val(
                 policy,
-                dataloader,
+                val_dataloader,
                 device,
                 use_amp=cfg.policy.use_amp,
             )

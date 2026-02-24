@@ -1,12 +1,12 @@
 lerobot-train \
+    --dataset.repo_id=eunjuri/${repo_id} \
     --save_checkpoint=false \
     --batch_size=4 \
     --steps=${step} \
     --policy.push_to_hub=true \
     --policy.type=groot \
-    --policy.repo_id=eunjuri/groot_policy_${repo_id} \
-    --policy.tune_diffusion_model=false \
-    --dataset.repo_id=eunjuri/${repo_id} \
+    --policy.repo_id=eunjuri/groot_${repo_id} \
+    --policy.tune_diffusion_model=True \
     --wandb.enable=true \
     --wandb.disable_artifact=true \
     --job_name=groot_${repo_id} \

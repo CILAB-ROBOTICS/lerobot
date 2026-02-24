@@ -4,7 +4,7 @@ lerobot-train \
     --output_dir=./outputs/pi0_${repo_id} \
     --job_name=pi0_${repo_id} \
     --policy.pretrained_path=lerobot/pi0_base \
-    --policy.repo_id=eunjuri/pi0_policy_${repo_id} \
+    --policy.repo_id=eunjuri/pi0_${repo_id} \
     --policy.compile_model=false \
     --policy.gradient_checkpointing=true \
     --policy.dtype=bfloat16 \
