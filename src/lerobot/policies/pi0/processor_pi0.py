@@ -43,11 +43,20 @@ class Pi0NewLineProcessor(ComplementaryDataProcessorStep):
     Ensures that the task description string ends with a newline character.
 
     This processing step is required for compatibility with the PaliGemma tokenizer,
-    which expects a newline at the end of the text prompt. It handles both single
-    strings and lists of strings for the 'task' key in complementary data.
+    which expects a newline at the end of the text prompt.
     """
 
     def complementary_data(self, complementary_data):
+        """
+        Adds a newline to the 'task' field if it doesn't already have one.
+
+        Args:
+            complementary_data: A dictionary that may contain a 'task' key with a
+                                string or list of strings.
+
+        Returns:
+            A new dictionary with the modified 'task' field.
+        """
         """
         Adds a newline to the 'task' field if it doesn't already have one.
 
@@ -132,7 +141,7 @@ def make_pi0_pre_post_processors(
         AddBatchDimensionProcessorStep(),
         Pi0NewLineProcessor(),  # Add newlines before tokenization for PaliGemma
         TokenizerProcessorStep(
-            tokenizer_name="google/paligemma-3b-pt-224",
+            tokenizer_name=config.text_tokenizer_name,
             max_length=config.tokenizer_max_length,
             padding_side="right",
             padding="max_length",

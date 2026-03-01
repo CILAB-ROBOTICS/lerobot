@@ -94,7 +94,16 @@ class PI0Config(PreTrainedConfig):
     scheduler_decay_steps: int = 30_000
     scheduler_decay_lr: float = 2.5e-6
 
+    # Language/text tokenizer settings
+    text_tokenizer_name: str = "google/paligemma-3b-pt-224"
     tokenizer_max_length: int = 48  # see openpi `__post_init__`
+
+    # Optional secondary modality: textile image features
+    # When enabled, textile images are processed similarly to regular camera images,
+    # embedded using SigLIP, and combined with language/image embeddings in the prefix.
+    # The model learns to attend to textile embeddings alongside language and images.
+    use_textile: bool = False
+    textile_image_resolution: tuple[int, int] | None = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -113,6 +122,10 @@ class PI0Config(PreTrainedConfig):
 
         if self.dtype not in ["bfloat16", "float32"]:
             raise ValueError(f"Invalid dtype: {self.dtype}")
+
+        # set textile image resolution from main resolution if not specified
+        if self.use_textile and self.textile_image_resolution is None:
+            self.textile_image_resolution = self.image_resolution
 
     def validate_features(self) -> None:
         """Validate and set up input/output features."""
