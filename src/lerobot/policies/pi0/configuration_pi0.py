@@ -96,7 +96,7 @@ class PI0Config(PreTrainedConfig):
 
     # Language/text tokenizer settings
     text_tokenizer_name: str = "google/paligemma-3b-pt-224"
-    tokenizer_max_length: int = 48  # see openpi `__post_init__`
+    tokenizer_max_length: int = 128  # see openpi `__post_init__`
 
     # Optional secondary modality: tactile image features
     # When enabled, tactile images are processed similarly to regular camera images,
