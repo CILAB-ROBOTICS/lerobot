@@ -98,12 +98,12 @@ class PI0Config(PreTrainedConfig):
     text_tokenizer_name: str = "google/paligemma-3b-pt-224"
     tokenizer_max_length: int = 48  # see openpi `__post_init__`
 
-    # Optional secondary modality: textile image features
-    # When enabled, textile images are processed similarly to regular camera images,
+    # Optional secondary modality: tactile image features
+    # When enabled, tactile images are processed similarly to regular camera images,
     # embedded using SigLIP, and combined with language/image embeddings in the prefix.
-    # The model learns to attend to textile embeddings alongside language and images.
-    use_textile: bool = False
-    textile_image_resolution: tuple[int, int] | None = None
+    # The model learns to attend to tactile embeddings alongside language and images.
+    use_tactile: bool = False
+    tactile_image_resolution: tuple[int, int] | None = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -123,9 +123,9 @@ class PI0Config(PreTrainedConfig):
         if self.dtype not in ["bfloat16", "float32"]:
             raise ValueError(f"Invalid dtype: {self.dtype}")
 
-        # set textile image resolution from main resolution if not specified
-        if self.use_textile and self.textile_image_resolution is None:
-            self.textile_image_resolution = self.image_resolution
+        # set tactile image resolution from main resolution if not specified
+        if self.use_tactile and self.tactile_image_resolution is None:
+            self.tactile_image_resolution = self.image_resolution
 
     def validate_features(self) -> None:
         """Validate and set up input/output features."""

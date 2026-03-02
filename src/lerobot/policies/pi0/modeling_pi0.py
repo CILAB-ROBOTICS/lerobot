@@ -50,8 +50,7 @@ from lerobot.utils.constants import (
     OBS_LANGUAGE_TOKENS,
     OBS_STATE,
     OPENPI_ATTENTION_MASK_VALUE,
-    OBS_TEXTILE_TOKENS,
-    OBS_TEXTILE_ATTENTION_MASK,
+    OBS_TACTILE_IMAGES,
 )
 
 
@@ -645,7 +644,7 @@ class PI0Pytorch(nn.Module):  # see openpi `PI0Pytorch`
         textile_images: list[torch.Tensor] | None = None,
         textile_masks: list[torch.Tensor] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Embed images with SigLIP and language/textile images with SigLIP."""
+        """Embed images with SigLIP and language/tactile images with SigLIP."""
         embs = []
         pad_masks = []
         att_masks = []
@@ -663,19 +662,19 @@ class PI0Pytorch(nn.Module):  # see openpi `PI0Pytorch`
             pad_masks.append(img_mask[:, None].expand(bsize, num_img_embs))
             att_masks += [0] * num_img_embs
 
-        # Process textile images if provided (embed same way as regular images)
-        if textile_images is not None and len(textile_images) > 0:
-            for textile, textile_mask in zip(textile_images, textile_masks, strict=True):
+        # Process tactile images if provided (embed same way as regular images)
+        if tactile_images is not None and len(tactile_images) > 0:
+            for tact, tact_mask in zip(tactile_images, tactile_masks, strict=True):
 
-                def textile_embed_func(textile_img):
-                    return self.paligemma_with_expert.embed_image(textile_img)
+                def tact_embed_func(tact_img):
+                    return self.paligemma_with_expert.embed_image(tact_img)
 
-                textile_emb = self._apply_checkpoint(textile_embed_func, textile)
-                bsize, num_textile_embs = textile_emb.shape[:2]
+                tact_emb = self._apply_checkpoint(tact_embed_func, tact)
+                bsize, num_tact_embs = tact_emb.shape[:2]
 
-                embs.append(textile_emb)
-                pad_masks.append(textile_mask[:, None].expand(bsize, num_textile_embs))
-                att_masks += [0] * num_textile_embs
+                embs.append(tact_emb)
+                pad_masks.append(tact_mask[:, None].expand(bsize, num_tact_embs))
+                att_masks += [0] * num_tact_embs
 
         # Process language tokens
         def lang_embed_func(lang_tokens):
@@ -763,7 +762,7 @@ class PI0Pytorch(nn.Module):  # see openpi `PI0Pytorch`
         return embs, pad_masks, att_masks, adarms_cond
 
     def forward(
-        self, images, img_masks, lang_tokens, lang_masks, state, actions, textile_tokens=None, textile_masks=None, noise=None, time=None
+        self, images, img_masks, lang_tokens, lang_masks, state, actions, tactile_images=None, tactile_masks=None, noise=None, time=None
     ) -> Tensor:
         """Do a full training forward pass and compute the loss."""
         if noise is None:
@@ -834,8 +833,8 @@ class PI0Pytorch(nn.Module):  # see openpi `PI0Pytorch`
         lang_tokens,
         lang_masks,
         state,
-        textile_images: list[torch.Tensor] | None = None,
-        textile_masks: list[torch.Tensor] | None = None,
+        tactile_images: list[torch.Tensor] | None = None,
+        tactile_masks: list[torch.Tensor] | None = None,
         noise=None,
         num_steps=None,
         **kwargs: Unpack[ActionSelectKwargs],
@@ -976,13 +975,8 @@ class PI0Policy(PreTrainedPolicy):
         config.validate_features()
         self.config = config
 
-        # load tokenizers for language/text and optional textile so that helper
-        # methods (_tokenize_language/_tokenize_textile) can be called from user
-        # code or tests.  The model itself does not require the tokenizer at
-        # runtime, only the preprocessor pipeline does, but having them here
-        # makes the API convenient and mirrors `PI0FastPolicy`.
+        # load tokenizer for language text so helper methods can be used in tests.
         self._text_tokenizer = None
-        self._textile_tokenizer = None
         if config.text_tokenizer_name:
             try:
                 from transformers import AutoTokenizer
@@ -996,20 +990,6 @@ class PI0Policy(PreTrainedPolicy):
             except Exception as e:
                 logging.warning(f"Could not load text tokenizer '{config.text_tokenizer_name}': {e}")
                 self._text_tokenizer = None
-
-        if config.textile_tokenizer_name:
-            try:
-                from transformers import AutoTokenizer
-
-                self._textile_tokenizer = AutoTokenizer.from_pretrained(
-                    config.textile_tokenizer_name,
-                    trust_remote_code=True,
-                    add_eos_token=True,
-                    add_bos_token=False,
-                )
-            except Exception as e:
-                logging.warning(f"Could not load textile tokenizer '{config.textile_tokenizer_name}': {e}")
-                self._textile_tokenizer = None
 
         # Initialize the core PI0 model
         self.init_rtc_processor()
@@ -1255,28 +1235,28 @@ class PI0Policy(PreTrainedPolicy):
         attention_mask = tokenized["attention_mask"].to(device=input_ids.device).to(torch.bool)
         return input_ids, attention_mask
 
-    def _preprocess_textile_images(
+    def _preprocess_tactile_images(
         self, batch: dict[str, Tensor]
     ) -> tuple[list[Tensor], list[Tensor]]:
-        """Preprocess textile images in the same way as regular images.
+        """Preprocess tactile images in the same way as regular images.
 
-        Textile images should be stored in batch with keys like "observation.textiles.camera_0_rgb".
-        Returns lists of textile image tensors and their masks.
+        Tactile images should be stored in batch with keys like "observation.tactile_images.camera_0_rgb".
+        Returns lists of tactile image tensors and their masks.
         """
-        if not self.config.use_textile:
+        if not self.config.use_tactile:
             return [], []
 
-        textiles = []
-        textile_masks = []
+        tactile_imgs = []
+        tactile_masks = []
         device = next(self.parameters()).device
 
-        # Find textile image keys
-        textile_keys = [key for key in batch.keys() if key.startswith(f"{OBS_TEXTILE_IMAGES}.")]
+        # Find tactile image keys
+        tactile_keys = [key for key in batch.keys() if key.startswith(f"{OBS_TACTILE_IMAGES}.")]
 
-        if not textile_keys:
+        if not tactile_keys:
             return [], []
 
-        for key in textile_keys:
+        for key in tactile_keys:
             img = batch[key]
 
             if img.device != device:
@@ -1288,20 +1268,20 @@ class PI0Policy(PreTrainedPolicy):
             if is_channels_first:
                 img = img.permute(0, 2, 3, 1)
 
-            if img.shape[1:3] != self.config.textile_image_resolution:
-                img = resize_with_pad_torch(img, *self.config.textile_image_resolution)
+            if img.shape[1:3] != self.config.tactile_image_resolution:
+                img = resize_with_pad_torch(img, *self.config.tactile_image_resolution)
 
             img = img * 2.0 - 1.0
 
             if is_channels_first:
                 img = img.permute(0, 3, 1, 2)
 
-            textiles.append(img)
+            tactile_imgs.append(img)
             bsize = img.shape[0]
             mask = torch.ones(bsize, dtype=torch.bool, device=device)
-            textile_masks.append(mask)
+            tactile_masks.append(mask)
 
-        return textiles, textile_masks
+        return tactile_imgs, tactile_masks
 
     def _preprocess_images(self, batch: dict[str, Tensor]) -> tuple[list[Tensor], list[Tensor]]:
         """Preprocess images for the model.
@@ -1402,7 +1382,7 @@ class PI0Policy(PreTrainedPolicy):
 
         # Prepare inputs
         images, img_masks = self._preprocess_images(batch)
-        textile_images, textile_masks = self._preprocess_textile_images(batch)
+        tactile_images, tactile_masks = self._preprocess_tactile_images(batch)
         lang_tokens, lang_masks = batch[f"{OBS_LANGUAGE_TOKENS}"], batch[f"{OBS_LANGUAGE_ATTENTION_MASK}"]
         state = self.prepare_state(batch)
 
@@ -1413,8 +1393,8 @@ class PI0Policy(PreTrainedPolicy):
             lang_tokens,
             lang_masks,
             state,
-            textile_images=textile_images,
-            textile_masks=textile_masks,
+            tactile_images=tactile_images,
+            tactile_masks=tactile_masks,
             **kwargs,
         )
 
@@ -1448,8 +1428,8 @@ class PI0Policy(PreTrainedPolicy):
             lang_masks,
             state,
             actions,
-            textile_images=textile_images,
-            textile_masks=textile_masks,
+            tactile_images=tactile_images,
+            tactile_masks=tactile_masks,
         )
 
         # Truncate losses to actual action dimensions
