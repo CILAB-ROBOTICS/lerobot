@@ -331,6 +331,33 @@ class _NormalizationMixin:
                 )
 
             mean, std = stats["mean"], stats["std"]
+            # if stats and tensor disagree on sequence length dimension we attempt
+            # to adjust the stats to match the current tensor.  This can happen when
+            # dataset splits were created with different maximum token lengths.
+            if mean.shape != tensor.shape:
+                # only handle case where the batch dimension matches and the
+                # discrepancy is in the trailing sequence dimension(s)
+                try:
+                    # broadcast mean/std to tensor shape when possible
+                    mean = mean.expand(tensor.shape)
+                    std = std.expand(tensor.shape)
+                except Exception:
+                    # fallback: slice along dim1 if mean has extra positions
+                    if mean.ndim >= 2 and tensor.ndim >= 2 and mean.shape[1] > tensor.shape[1]:
+                        mean = mean[:, : tensor.shape[1]]
+                        std = std[:, : tensor.shape[1]]
+                    elif mean.ndim >= 2 and tensor.ndim >= 2 and mean.shape[1] < tensor.shape[1]:
+                        # pad stats with zeros/ones so shapes align
+                        pad_size = tensor.shape[1] - mean.shape[1]
+                        pad_mean = torch.zeros(mean.shape[0], pad_size, device=mean.device, dtype=mean.dtype)
+                        pad_std = torch.ones(std.shape[0], pad_size, device=std.device, dtype=std.dtype)
+                        mean = torch.cat([mean, pad_mean], dim=1)
+                        std = torch.cat([std, pad_std], dim=1)
+                    else:
+                        # give up and raise informative error
+                        raise RuntimeError(
+                            f"Normalization stats shape {mean.shape} does not match tensor shape {tensor.shape}"
+                        )
             # Avoid division by zero by adding a small epsilon.
             denom = std + self.eps
             if inverse:
