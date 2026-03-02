@@ -38,8 +38,8 @@ class PI0Config(PreTrainedConfig):
     n_action_steps: int = 50  # Number of action steps to execute
 
     # Shorter state and action vectors will be padded to these dimensions
-    max_state_dim: int = 32
-    max_action_dim: int = 32
+    max_state_dim: int = 128
+    max_action_dim: int = 128
 
     # Flow matching parameters: see openpi `PI0Pytorch`
     num_inference_steps: int = 10  # Number of denoising steps during inference
