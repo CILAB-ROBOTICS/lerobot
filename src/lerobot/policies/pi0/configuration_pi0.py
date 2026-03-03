@@ -102,7 +102,7 @@ class PI0Config(PreTrainedConfig):
     # When enabled, tactile images are processed similarly to regular camera images,
     # embedded using SigLIP, and combined with language/image embeddings in the prefix.
     # The model learns to attend to tactile embeddings alongside language and images.
-    use_tactile: bool = False
+    use_tactile: bool = True
     tactile_image_resolution: tuple[int, int] | None = None
 
     def __post_init__(self):

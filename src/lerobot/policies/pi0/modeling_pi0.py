@@ -1252,8 +1252,7 @@ class PI0Policy(PreTrainedPolicy):
         device = next(self.parameters()).device
 
         # Find tactile image keys
-        tactile_keys = [key for key in batch.keys() if key.startswith(f"{OBS_TACTILE_IMAGES}.")]
-
+        tactile_keys = [key for key in batch.keys()if key.startswith("observation.images.") and "tactile" in key]
         if not tactile_keys:
             return [], []
 
@@ -1296,9 +1295,8 @@ class PI0Policy(PreTrainedPolicy):
         # Get device from model parameters
         device = next(self.parameters()).device
 
-        present_img_keys = [key for key in self.config.image_features if key in batch]
-        missing_img_keys = [key for key in self.config.image_features if key not in batch]
-
+        present_img_keys = [key for key in self.config.image_features if key in batch and "tactile" not in key.lower()]
+        missing_img_keys = [key for key in self.config.image_features if key not in batch and "tactile" not in key.lower()]
         if len(present_img_keys) == 0:
             raise ValueError(
                 f"All image features are missing from the batch. At least one expected. "

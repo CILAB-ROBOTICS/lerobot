@@ -28,7 +28,7 @@ OBS_LANGUAGE_TOKENS = OBS_LANGUAGE + ".tokens"
 OBS_LANGUAGE_ATTENTION_MASK = OBS_LANGUAGE + ".attention_mask"
 
 # Secondary image modality: tactile images
-OBS_TACTILE = OBS_STR + ".tactile"
+OBS_TACTILE = OBS_STR + ".image"
 OBS_TACTILE_IMAGES = OBS_TACTILE + "s"
 
 ACTION = "action"
