@@ -113,6 +113,8 @@ def evaluate_on_val(
                 loss = output["loss"]
             elif isinstance(output, tuple): # use this
                 total_loss, extra = output
+                print("extra=")
+                print(extra.keys())
                 l1_loss  = float(extra["l1_loss"])
                 kld_loss = float(extra["kld_loss"])
                 total_loss = total_loss.item()
