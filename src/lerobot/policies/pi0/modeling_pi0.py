@@ -641,8 +641,8 @@ class PI0Pytorch(nn.Module):  # see openpi `PI0Pytorch`
         img_masks,
         lang_tokens,
         lang_masks,
-        textile_images: list[torch.Tensor] | None = None,
-        textile_masks: list[torch.Tensor] | None = None,
+        tactile_images: list[torch.Tensor] | None = None,
+        tactile_masks: list[torch.Tensor] | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Embed images with SigLIP and language/tactile images with SigLIP."""
         embs = []
@@ -780,8 +780,8 @@ class PI0Pytorch(nn.Module):  # see openpi `PI0Pytorch`
             img_masks,
             lang_tokens,
             lang_masks,
-            textile_tokens=textile_tokens,
-            textile_masks=textile_masks,
+            tactile_images=tactile_images,
+            tactile_masks=tactile_masks,
         )
         suffix_embs, suffix_pad_masks, suffix_att_masks, adarms_cond = self.embed_suffix(state, x_t, time)
 
@@ -860,8 +860,8 @@ class PI0Pytorch(nn.Module):  # see openpi `PI0Pytorch`
             img_masks,
             lang_tokens,
             lang_masks,
-            textile_tokens=textile_tokens,
-            textile_masks=textile_masks,
+            tactile_images=tactile_images,
+            tactile_masks=tactile_masks,
         )
         prefix_att_2d_masks = make_att_2d_masks(prefix_pad_masks, prefix_att_masks)
         prefix_position_ids = torch.cumsum(prefix_pad_masks, dim=1) - 1
@@ -1415,7 +1415,7 @@ class PI0Policy(PreTrainedPolicy):
         """
         # Prepare inputs
         images, img_masks = self._preprocess_images(batch)
-        textile_images, textile_masks = self._preprocess_textile_images(batch)
+        tactile_images, tactile_masks = self._preprocess_tactile_images(batch)
         lang_tokens, lang_masks = batch[f"{OBS_LANGUAGE_TOKENS}"], batch[f"{OBS_LANGUAGE_ATTENTION_MASK}"]
         state = self.prepare_state(batch)
         actions = self.prepare_action(batch)

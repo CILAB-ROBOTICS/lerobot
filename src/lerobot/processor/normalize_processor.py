@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import torch
-from torch import Tensor
+from torch import Tensor, tensor
 
 from lerobot.configs.types import FeatureType, NormalizationMode, PipelineFeatureType, PolicyFeature
 from lerobot.datasets.lerobot_dataset import LeRobotDataset
@@ -304,6 +304,10 @@ class _NormalizationMixin:
         """
         norm_mode = self.norm_map.get(feature_type, NormalizationMode.IDENTITY)
         if norm_mode == NormalizationMode.IDENTITY or key not in self._tensor_stats:
+            return tensor
+
+        # Only normalize continuous tensors
+        if not tensor.is_floating_point():
             return tensor
 
         if norm_mode not in (
