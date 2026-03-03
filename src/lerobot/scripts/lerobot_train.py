@@ -96,10 +96,10 @@ def evaluate_on_val(
 
     policy.eval()
 
-    meters = {
+    # we only create the meters that we know we'll use; additional
+    # metrics are added lazily if they show up in the policy's output.
+    meters: dict[str, AverageMeter] = {
         "total_loss": AverageMeter("val_total_loss", ":.3f"),
-        "l1_loss": AverageMeter("val_l1_loss", ":.3f"),
-        "kld_loss": AverageMeter("val_kld_loss", ":.3f"),
     }
 
     for batch in val_dataloader:
@@ -109,30 +109,61 @@ def evaluate_on_val(
 
         with torch.autocast(device_type=device.type) if use_amp else nullcontext():
             output = policy(batch)
-            if isinstance(output, dict):
-                loss = output["loss"]
-            elif isinstance(output, tuple): # use this
-                total_loss, extra = output
-                print("extra=")
-                print(extra.keys())
-                l1_loss  = float(extra["l1_loss"])
-                kld_loss = float(extra["kld_loss"])
-                total_loss = total_loss.item()
-            else:
-                loss = output
-        
+
+        # normalize output format into (loss_scalar, extra_dict)
+        if isinstance(output, tuple):
+            loss_val, extra = output
+            # if the policy returns a tensor, convert to float
+            if isinstance(loss_val, torch.Tensor):
+                loss_val = loss_val.item()
+        elif isinstance(output, dict):
+            extra = output
+            loss_val = extra.get("loss", None)
+            if isinstance(loss_val, torch.Tensor):
+                loss_val = loss_val.item()
+        else:
+            loss_val = output
+            if isinstance(loss_val, torch.Tensor):
+                loss_val = loss_val.item()
+            extra = {}
+
+        # fall back to zero if nothing was provided
+        if loss_val is None:
+            loss_val = 0.0
+
         batch_size = batch[list(batch.keys())[0]].shape[0]
-        meters["total_loss"].update(total_loss, n=batch_size)
-        meters["l1_loss"].update(l1_loss, n=batch_size)
-        meters["kld_loss"].update(kld_loss, n=batch_size)
+        meters["total_loss"].update(loss_val, n=batch_size)
+
+        # handle optional metrics that might appear in `extra`
+        if "l1_loss" in extra:
+            meters.setdefault("l1_loss", AverageMeter("val_l1_loss", ":.3f")).update(
+                float(extra["l1_loss"]), n=batch_size
+            )
+        if "kld_loss" in extra:
+            meters.setdefault("kld_loss", AverageMeter("val_kld_loss", ":.3f")).update(
+                float(extra["kld_loss"]), n=batch_size
+            )
+        if "loss_per_dim" in extra:
+            # compute the average per-dimension loss so it can be logged
+            lpd = extra["loss_per_dim"]
+            if isinstance(lpd, (list, tuple)) and len(lpd) > 0:
+                avg_lpd = sum(lpd) / len(lpd)
+            else:
+                avg_lpd = float(lpd)
+            meters.setdefault(
+                "avg_loss_per_dim",
+                AverageMeter("val_avg_loss_per_dim", ":.3f"),
+            ).update(avg_lpd, n=batch_size)
 
     policy.train()
 
-    return {
-        "total_loss": meters["total_loss"].avg,
-        "l1_loss": meters["l1_loss"].avg,
-        "kld_loss": meters["kld_loss"].avg,
-    }
+    # gather results only for the metrics we actually tracked
+    results: dict[str, float] = {"total_loss": meters["total_loss"].avg}
+    for name in ("l1_loss", "kld_loss", "avg_loss_per_dim"):
+        if name in meters:
+            results[name] = meters[name].avg
+
+    return results
 
 
 def update_policy(
