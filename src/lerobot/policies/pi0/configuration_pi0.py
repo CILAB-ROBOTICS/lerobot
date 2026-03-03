@@ -38,8 +38,8 @@ class PI0Config(PreTrainedConfig):
     n_action_steps: int = 50  # Number of action steps to execute
 
     # Shorter state and action vectors will be padded to these dimensions
-    max_state_dim: int = 128
-    max_action_dim: int = 128
+    max_state_dim: int = 32
+    max_action_dim: int = 32
 
     # Flow matching parameters: see openpi `PI0Pytorch`
     num_inference_steps: int = 10  # Number of denoising steps during inference
@@ -96,7 +96,7 @@ class PI0Config(PreTrainedConfig):
 
     # Language/text tokenizer settings
     text_tokenizer_name: str = "google/paligemma-3b-pt-224"
-    tokenizer_max_length: int = 128  # see openpi `__post_init__`
+    tokenizer_max_length: int = 48  # see openpi `__post_init__`
 
     # Optional secondary modality: tactile image features
     # When enabled, tactile images are processed similarly to regular camera images,
