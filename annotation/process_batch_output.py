@@ -109,14 +109,12 @@ def main(args):
     episode_data: dict[int, dict[int, dict]] = defaultdict(dict)
     failed = 0
 
+    # viewer용 텍스트 매핑 수집
+    gt_sentence_rows: list[dict[str, str]] = []
+    annotation_sentence_rows: list[dict[str, str]] = []
+
     for rec in records:
         custom_id = rec.get("custom_id", "")
-        try:
-            ep_idx, fr_idx = parse_custom_id(custom_id)
-        except Exception:
-            print(f"  [WARN] cannot parse custom_id: {custom_id}")
-            failed += 1
-            continue
 
         # 응답 파싱
         try:
@@ -124,7 +122,7 @@ def main(args):
             label: dict[str, Any] = json.loads(content)
         except Exception as e:
             print(f"  [WARN] parse error for {custom_id}: {e}")
-            label: dict[str, Any] = {
+            label = {
                 "left_hand_contact":  None,
                 "right_hand_contact": None,
                 "contact_object":     None,
@@ -133,7 +131,31 @@ def main(args):
             }
             failed += 1
 
-        label["frame_index"]   = fr_idx
+        # viewer가 바로 읽을 수 있는 sentence 매핑 추출
+        gt_sentence = label.get("gt_sentence")
+        if custom_id and isinstance(gt_sentence, str) and gt_sentence.strip():
+            gt_sentence_rows.append({
+                "custom_id": custom_id,
+                "gt_sentence": gt_sentence.strip(),
+            })
+
+        annotation_sentence = label.get("annotation_sentence")
+        if custom_id and isinstance(annotation_sentence, str) and annotation_sentence.strip():
+            annotation_sentence_rows.append({
+                "custom_id": custom_id,
+                "annotation_sentence": annotation_sentence.strip(),
+            })
+
+        # 기존 contact 포맷 저장 경로 (custom_id 파싱 가능한 경우에만)
+        try:
+            ep_idx, fr_idx = parse_custom_id(custom_id)
+        except Exception:
+            if custom_id:
+                print(f"  [WARN] cannot parse custom_id (skip episode/frame aggregation): {custom_id}")
+            failed += 1
+            continue
+
+        label["frame_index"] = fr_idx
         label["episode_index"] = ep_idx
         episode_data[ep_idx][fr_idx] = label
 
@@ -177,10 +199,23 @@ def main(args):
                 row = frames[fi]
                 writer.writerow({k: row.get(k) for k in fieldnames})
 
+    # ── viewer용 sentence 매핑 JSONL 저장 ───────────────────────────────────
+    gt_jsonl = join(args.out_dir, "gt_sentences.jsonl")
+    with open(gt_jsonl, "w") as f:
+        for row in gt_sentence_rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+    annotation_jsonl = join(args.out_dir, "annotation_sentences.jsonl")
+    with open(annotation_jsonl, "w") as f:
+        for row in annotation_sentence_rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
     print(f"\n✅ Done!")
     print(f"   Episodes annotated : {len(episode_data)}")
     print(f"   Combined JSON      : {combined_path}")
     print(f"   Summary CSV        : {csv_path}")
+    print(f"   GT JSONL (viewer)  : {gt_jsonl} ({len(gt_sentence_rows)} rows)")
+    print(f"   ANNO JSONL(viewer) : {annotation_jsonl} ({len(annotation_sentence_rows)} rows)")
     print(f"   Per-episode JSONs  : {args.out_dir}/episode_XXXXXX_contact.json")
 
 

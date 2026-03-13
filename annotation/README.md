@@ -227,6 +227,54 @@ annotations/
 
 ---
 
+## Step 2-B · Task+RGB 기반 Tactile GT 어노테이션 JSONL
+
+Task 설명 + RGB 연속 프레임 스트립을 보고,
+현재 시점의 tactile GT를 **한 문장(`gt_sentence`)** 으로 생성하는 배치 입력을 만듭니다.
+
+```bash
+python prepare_batch_jsonl_tactile_gt_from_rgb.py
+```
+
+| 인자 | 기본값 | 설명 |
+|---|---|---|
+| `--frames_meta` | `frames/episodes_meta.json` | 메타 파일 |
+| `--out_dir` | `batch` | 출력 디렉토리 |
+| `--output_name` | `batch_input_tactile_gt_from_rgb.jsonl` | 출력 JSONL 파일명 |
+| `--strip_size` | `3` | 연속 프레임 수(홀수) |
+| `--scale` | `None` | 프레임 축소 비율 |
+
+생성 후 전송:
+
+```bash
+python submit_batch_openai.py --jsonl_path batch/batch_input_tactile_gt_from_rgb.jsonl --out_dir batch
+```
+
+## Step 2-C · Tactile-only 활성 어노테이션 JSONL
+
+연속 tactile 합성 이미지(strip)만 보고,
+중앙 프레임에서 tactile 상태를 **한 문장(`annotation_sentence`)** 으로 생성하는 배치 입력을 만듭니다.
+
+```bash
+python prepare_batch_jsonl_tactile_only_active_fingers.py
+```
+
+| 인자 | 기본값 | 설명 |
+|---|---|---|
+| `--frames_meta` | `frames/episodes_meta.json` | 메타 파일 |
+| `--out_dir` | `batch` | 출력 디렉토리 |
+| `--output_name` | `batch_input_tactile_only_active_fingers.jsonl` | 출력 JSONL 파일명 |
+| `--strip_size` | `3` | 연속 tactile 프레임 수(홀수) |
+| `--scale` | `None` | 이미지 축소 비율 |
+
+생성 후 전송:
+
+```bash
+python submit_batch_openai.py --jsonl_path batch/batch_input_tactile_only_active_fingers.jsonl --out_dir batch
+```
+
+---
+
 ## 🔁 한 번에 실행하기
 
 ```bash
@@ -262,3 +310,25 @@ OpenAI Batch API는 일반 API 대비 **50% 할인**이 적용됩니다.
 > `--scale` 값을 낮출수록 이미지 토큰이 줄어 비용이 절감됩니다.  
 > OpenAI [이미지 토큰 계산기](https://platform.openai.com/docs/guides/vision) 참고.
 
+---
+
+## Step 2-D · 준비부터 제출+결과처리까지 한 번에 (Bash)
+
+JSONL 생성 + 다중 Batch 제출 + 완료 즉시 `process_batch_output.py` 실행을 한 번에 수행합니다.
+
+```bash
+bash annotation/run_tactile_annotation_batches.sh --mode gt
+bash annotation/run_tactile_annotation_batches.sh --mode annotation
+bash annotation/run_tactile_annotation_batches.sh --mode both --strip_size 5 --scale 0.7
+```
+
+| 인자 | 설명 |
+|---|---|
+| `--mode` | `gt` / `annotation` / `both` |
+| `--frames_meta` | 입력 메타 파일 경로 |
+| `--out_dir` | JSONL/배치 ID 매핑 저장 경로 |
+| `--processed_root` | batch 결과 파싱 출력 루트 디렉토리 |
+| `--model` | OpenAI 모델명 |
+| `--strip_size` | 연속 프레임 수(홀수) |
+| `--scale` | 이미지 축소 비율(선택) |
+| `--sleep` | 다중 배치 상태 폴링 간격(초) |
