@@ -211,7 +211,7 @@ if __name__ == "__main__":
     parser.add_argument("--frames_meta", type=str, default="frames/episodes_meta.json")
     parser.add_argument("--out_dir", type=str, default="batch")
     parser.add_argument("--output_name", type=str, default="batch_input_tactile_gt_from_rgb.jsonl")
-    parser.add_argument("--model", type=str, default="gpt-5-mini")
+    parser.add_argument("--model", type=str, default="gpt-5.2")
     parser.add_argument("--strip_size", type=int, default=3)
     parser.add_argument("--scale", type=float, default=None)
     main(parser.parse_args())
